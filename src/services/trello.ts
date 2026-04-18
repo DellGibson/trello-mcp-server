@@ -15,6 +15,14 @@ export class TrelloClient {
     this.apiKey = apiKey;
     this.token = token;
     this.http = axios.create({ baseURL: BASE_URL, timeout: 15000 });
+    this.http.interceptors.response.use(undefined, async (error: AxiosError) => {
+      const cfg = error.config as (typeof error.config & { _retry?: number }) | undefined;
+      if (!cfg || error.response?.status !== 429 || (cfg._retry ?? 0) >= 2) throw error;
+      const attempt = (cfg._retry ?? 0) + 1;
+      cfg._retry = attempt;
+      await new Promise(r => setTimeout(r, attempt * 1000));
+      return this.http.request(cfg);
+    });
   }
 
   private get auth() { return { key: this.apiKey, token: this.token }; }
@@ -63,7 +71,7 @@ export class TrelloClient {
   async getBoardMembers(boardId: string): Promise<TrelloMember[]> {
     try {
       const { data } = await this.http.get<TrelloMember[]>(`/boards/${boardId}/members`, {
-        params: { ...this.auth }
+        params: { ...this.auth, fields: 'id,username,fullName,avatarUrl' }
       });
       return data;
     } catch (e) { this.handleError(e, `getBoardMembers(${boardId})`); }
