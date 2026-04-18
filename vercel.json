@@ -1,5 +1,6 @@
 {
   "version": 2,
+  "outputDirectory": "public",
   "functions": {
     "api/mcp.ts": { "maxDuration": 30 },
     "api/health.ts": { "maxDuration": 5 }
