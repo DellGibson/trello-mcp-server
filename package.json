@@ -13,7 +13,9 @@
   "scripts": {
     "build": "tsc",
     "start": "node dist/index.js",
-    "dev": "node --loader ts-node/esm src/index.ts"
+    "dev": "node --loader ts-node/esm src/index.ts",
+    "deploy:preview": "vercel",
+    "deploy:prod": "vercel --prod"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.0.0",
@@ -22,8 +24,9 @@
   },
   "devDependencies": {
     "@types/node": "^25.6.0",
-    "typescript": "^5.4.0",
-    "ts-node": "^10.9.0"
+    "@vercel/node": "^5.7.11",
+    "ts-node": "^10.9.0",
+    "typescript": "^5.4.0"
   },
   "license": "MIT",
   "author": "George Kendall",
@@ -31,7 +34,12 @@
     "type": "git",
     "url": "https://github.com/DellGibson/trello-mcp-server.git"
   },
-  "keywords": ["mcp", "trello", "claude", "model-context-protocol"],
+  "keywords": [
+    "mcp",
+    "trello",
+    "claude",
+    "model-context-protocol"
+  ],
   "engines": {
     "node": ">=18.0.0"
   }

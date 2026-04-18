@@ -1,10 +1,6 @@
 #!/usr/bin/env node
-import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
-import { TrelloClient } from './services/trello.js';
-import { registerBoardTools } from './tools/boards.js';
-import { registerCardTools } from './tools/cards.js';
-import { registerSearchTools } from './tools/search.js';
+import { createServer } from './server.js';
 
 function getEnvOrThrow(key: string): string {
   const val = process.env[key];
@@ -13,15 +9,8 @@ function getEnvOrThrow(key: string): string {
 }
 
 async function main(): Promise<void> {
-  const apiKey = getEnvOrThrow('TRELLO_API_KEY');
-  const token = getEnvOrThrow('TRELLO_TOKEN');
-  const client = new TrelloClient(apiKey, token);
-  const server = new McpServer({ name: 'trello-mcp-server', version: '1.0.0' });
-  registerBoardTools(server, client);
-  registerCardTools(server, client);
-  registerSearchTools(server, client);
-  const transport = new StdioServerTransport();
-  await server.connect(transport);
+  const server = createServer(getEnvOrThrow('TRELLO_API_KEY'), getEnvOrThrow('TRELLO_TOKEN'));
+  await server.connect(new StdioServerTransport());
   process.stderr.write('Trello MCP server running on stdio\n');
 }
 

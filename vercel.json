@@ -1,0 +1,7 @@
+{
+  "version": 2,
+  "functions": {
+    "api/mcp.ts": { "maxDuration": 30 },
+    "api/health.ts": { "maxDuration": 5 }
+  }
+}
