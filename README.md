@@ -42,6 +42,8 @@ https://trello.com/1/authorize?expiration=never&scope=read,write&response_type=t
 ```
 Authorize and copy the token shown.
 
+Alternatively, copy `.env.example` to `.env` in the repo root and fill in both values if you prefer loading credentials from a dotenv file via your launcher.
+
 ### 2. Install and build
 
 ```bash
@@ -85,6 +87,17 @@ Fully quit and relaunch Claude Desktop. You should see the Trello tools availabl
 
 Ask Claude: *"List my Trello boards"*
 
+## Troubleshooting
+
+**"Authentication failed — check TRELLO_API_KEY and TRELLO_TOKEN"**
+The `env` block in your Claude Desktop config is empty or wrong. Re-open the config, confirm both values are copied without surrounding quotes or whitespace, and fully restart Claude Desktop.
+
+**Trello tools don't appear in Claude Desktop's toolbar**
+Claude Desktop caches the server list. Fully quit it (taskbar tray on Windows, ⌘Q on macOS — not just closing the window), then relaunch. If tools still don't appear, check `%APPDATA%\Claude\logs\` (Windows) or `~/Library/Logs/Claude/` (macOS) for the MCP startup error.
+
+**Network errors or timeouts**
+Verify `api.trello.com` is reachable from your machine (`curl https://api.trello.com/1/members/me?key=…&token=…`). Corporate proxies or endpoint firewalls sometimes block it.
+
 ## Example prompts
 
 - "Show me all cards on my Marketing board"
@@ -98,6 +111,8 @@ Ask Claude: *"List my Trello boards"*
 - Your API key and token are stored only in your local Claude Desktop config file
 - The token grants read/write access to your Trello account — treat it like a password
 - To revoke access: https://trello.com/your-account/profile → revoke the token
+- This server makes HTTPS requests only to `api.trello.com`. No telemetry, no third-party calls
+- Report security issues privately via [GitHub's Report a Vulnerability](https://github.com/DellGibson/trello-mcp-server/security) flow — see [`SECURITY.md`](SECURITY.md)
 
 ## License
 

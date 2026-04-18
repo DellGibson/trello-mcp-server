@@ -1,0 +1,45 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        node-version: [18, 20]
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node ${{ matrix.node-version }}
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node-version }}
+          cache: npm
+
+      - name: Install
+        run: npm ci
+
+      - name: Build
+        run: npm run build
+
+      - name: Smoke test (module load)
+        run: |
+          set +e
+          output=$(node dist/index.js 2>&1)
+          exit_code=$?
+          echo "$output"
+          if [ "$exit_code" -ne 1 ]; then
+            echo "Expected exit code 1 (missing env var), got $exit_code"
+            exit 1
+          fi
+          echo "$output" | grep -q "TRELLO_API_KEY" || {
+            echo "Expected missing-env-var message, got different error"
+            exit 1
+          }
+
+      - name: Audit
+        run: npm audit --audit-level=high
