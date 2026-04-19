@@ -56,6 +56,32 @@ export function registerBoardTools(server: McpServer, client: TrelloClient): voi
     return { content: [{ type: 'text', text }], structuredContent: { cards: cards.map(c => ({ ...c, listName: listMap.get(c.idList) })) } };
   });
 
+  server.registerTool('trello_create_board', {
+    title: 'Create New Trello Board',
+    description: `Create a new Trello board. By default seeds the board with the standard 'To Do / Doing / Done' lists and the default color label set.`,
+    inputSchema: {
+      name: z.string().min(1).max(16384).describe("Board name"),
+      desc: z.string().max(16384).optional().describe("Board description (Markdown supported)"),
+      workspace_id: z.string().optional().describe("Workspace/organization ID (default: personal boards)"),
+      default_lists: z.boolean().default(true).describe("Seed with 'To Do / Doing / Done' lists"),
+      default_labels: z.boolean().default(true).describe("Include the default color label set"),
+      visibility: z.enum(['private','org','public']).default('private').describe("Board visibility (default: private)")
+    },
+    annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: false }
+  }, async ({ name, desc, workspace_id, default_lists, default_labels, visibility }) => {
+    const board = await client.createBoard(name, {
+      desc,
+      idOrganization: workspace_id,
+      defaultLists: default_lists,
+      defaultLabels: default_labels,
+      prefs_permissionLevel: visibility,
+    });
+    return {
+      content: [{ type: 'text', text: `Created board "${board.name}" (${board.id})\n${board.url}` }],
+      structuredContent: board,
+    };
+  });
+
   server.registerTool('trello_update_board', {
     title: 'Update Trello Board',
     description: `Update board fields: rename, change description, or archive/unarchive. Only provide fields to change. All fields optional except board_id.`,
