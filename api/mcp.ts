@@ -1,33 +1,47 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/streamableHttp.js';
-import { timingSafeEqual } from 'node:crypto';
 import { createServer } from '../src/server.js';
+import { TrelloOAuthProvider } from '../src/oauth/provider.js';
 
-function constantTimeMatch(provided: string | undefined, expected: string): boolean {
-  if (!provided) return false;
-  const a = Buffer.from(provided);
-  const b = Buffer.from(expected);
-  if (a.length !== b.length) return false;
-  return timingSafeEqual(a, b);
+const provider = new TrelloOAuthProvider();
+
+function sendUnauthorized(res: VercelResponse): void {
+  const issuer = process.env.OAUTH_ISSUER_URL?.replace(/\/$/, '') ?? '';
+  const prm = `${issuer}/.well-known/oauth-protected-resource`;
+  res.setHeader(
+    'WWW-Authenticate',
+    `Bearer realm="mcp", resource_metadata="${prm}"`,
+  );
+  res.status(401).json({ error: 'unauthorized' });
 }
 
-export default async function handler(req: VercelRequest, res: VercelResponse): Promise<void> {
-  const authToken = process.env.MCP_AUTH_TOKEN;
-  if (!authToken) {
+export default async function handler(
+  req: VercelRequest,
+  res: VercelResponse,
+): Promise<void> {
+  const apiKey = process.env.TRELLO_API_KEY;
+  const trelloToken = process.env.TRELLO_TOKEN;
+  if (!apiKey || !trelloToken || !process.env.OAUTH_JWT_SECRET || !process.env.OAUTH_ISSUER_URL) {
     res.status(500).json({ error: 'server misconfigured' });
-    return;
-  }
-  const expected = `Bearer ${authToken}`;
-  const provided = req.headers.authorization;
-  if (!constantTimeMatch(Array.isArray(provided) ? provided[0] : provided, expected)) {
-    res.status(401).json({ error: 'unauthorized' });
     return;
   }
 
-  const apiKey = process.env.TRELLO_API_KEY;
-  const trelloToken = process.env.TRELLO_TOKEN;
-  if (!apiKey || !trelloToken) {
-    res.status(500).json({ error: 'server misconfigured' });
+  const authHeader = req.headers.authorization;
+  const headerValue = Array.isArray(authHeader) ? authHeader[0] : authHeader;
+  const token =
+    headerValue && headerValue.startsWith('Bearer ')
+      ? headerValue.slice('Bearer '.length).trim()
+      : undefined;
+
+  if (!token) {
+    sendUnauthorized(res);
+    return;
+  }
+
+  try {
+    await provider.verifyAccessToken(token);
+  } catch {
+    sendUnauthorized(res);
     return;
   }
 
