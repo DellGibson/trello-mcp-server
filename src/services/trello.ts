@@ -86,6 +86,25 @@ export class TrelloClient {
     } catch (e) { this.handleError(e, `getBoardLists(${boardId})`); }
   }
 
+  async updateList(listId: string, updates: { name?: string; closed?: boolean; idBoard?: string; pos?: 'top' | 'bottom' | number }): Promise<TrelloList> {
+    try {
+      const params: Record<string, unknown> = { ...this.auth };
+      if (updates.name !== undefined) params.name = updates.name;
+      if (updates.closed !== undefined) params.closed = updates.closed;
+      if (updates.idBoard !== undefined) params.idBoard = updates.idBoard;
+      if (updates.pos !== undefined) params.pos = updates.pos;
+      const { data } = await this.http.put<TrelloList>(`/lists/${listId}`, null, { params });
+      return data;
+    } catch (e) { this.handleError(e, `updateList(${listId})`); }
+  }
+
+  async getList(listId: string): Promise<TrelloList> {
+    try {
+      const { data } = await this.http.get<TrelloList>(`/lists/${listId}`, { params: { ...this.auth } });
+      return data;
+    } catch (e) { this.handleError(e, `getList(${listId})`); }
+  }
+
   async createList(boardId: string, name: string, pos?: 'top' | 'bottom' | number): Promise<TrelloList> {
     try {
       const { data } = await this.http.post<TrelloList>('/lists', null, {
@@ -156,6 +175,63 @@ export class TrelloClient {
   async archiveCard(cardId: string): Promise<TrelloCard> { return this.updateCard(cardId, { closed: true }); }
   async moveCard(cardId: string, listId: string, pos?: 'top' | 'bottom'): Promise<TrelloCard> {
     return this.updateCard(cardId, { idList: listId, pos: pos ?? 'bottom' });
+  }
+
+  async copyCard(sourceCardId: string, targetListId: string, options?: { name?: string; keepFromSource?: string; pos?: 'top' | 'bottom' }): Promise<TrelloCard> {
+    try {
+      const { data } = await this.http.post<TrelloCard>('/cards', null, {
+        params: {
+          ...this.auth,
+          idCardSource: sourceCardId,
+          idList: targetListId,
+          keepFromSource: options?.keepFromSource ?? 'all',
+          ...(options?.name ? { name: options.name } : {}),
+          pos: options?.pos ?? 'bottom',
+        }
+      });
+      return data;
+    } catch (e) { this.handleError(e, `copyCard(${sourceCardId})`); }
+  }
+
+  async addLabelToCard(cardId: string, labelId: string): Promise<void> {
+    try {
+      await this.http.post(`/cards/${cardId}/idLabels`, null, {
+        params: { ...this.auth, value: labelId }
+      });
+    } catch (e) { this.handleError(e, `addLabelToCard(${cardId})`); }
+  }
+
+  async removeLabelFromCard(cardId: string, labelId: string): Promise<void> {
+    try {
+      await this.http.delete(`/cards/${cardId}/idLabels/${labelId}`, {
+        params: { ...this.auth }
+      });
+    } catch (e) { this.handleError(e, `removeLabelFromCard(${cardId})`); }
+  }
+
+  async addMemberToCard(cardId: string, memberId: string): Promise<void> {
+    try {
+      await this.http.post(`/cards/${cardId}/idMembers`, null, {
+        params: { ...this.auth, value: memberId }
+      });
+    } catch (e) { this.handleError(e, `addMemberToCard(${cardId})`); }
+  }
+
+  async removeMemberFromCard(cardId: string, memberId: string): Promise<void> {
+    try {
+      await this.http.delete(`/cards/${cardId}/idMembers/${memberId}`, {
+        params: { ...this.auth }
+      });
+    } catch (e) { this.handleError(e, `removeMemberFromCard(${cardId})`); }
+  }
+
+  async addAttachmentToCard(cardId: string, url: string, name?: string): Promise<{ id: string; name: string; url: string }> {
+    try {
+      const { data } = await this.http.post<{ id: string; name: string; url: string }>(`/cards/${cardId}/attachments`, null, {
+        params: { ...this.auth, url, ...(name ? { name } : {}) }
+      });
+      return data;
+    } catch (e) { this.handleError(e, `addAttachmentToCard(${cardId})`); }
   }
 
   async getCardComments(cardId: string): Promise<TrelloComment[]> {
