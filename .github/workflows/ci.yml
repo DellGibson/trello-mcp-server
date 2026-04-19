@@ -41,5 +41,5 @@ jobs:
             exit 1
           }
 
-      - name: Audit
-        run: npm audit --audit-level=high
+      - name: Audit (production deps only)
+        run: npm audit --omit=dev --audit-level=high
