@@ -2,3 +2,10 @@ node_modules/
 dist/
 .env
 *.log
+.vercel/
+api/**/*.js
+api/**/*.js.map
+api/**/*.d.ts
+api/**/*.d.ts.map
+
+.vercel
