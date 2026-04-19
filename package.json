@@ -30,7 +30,6 @@
     "typescript": "^5.4.0"
   },
   "license": "MIT",
-  "author": "George Kendall",
   "repository": {
     "type": "git",
     "url": "https://github.com/DellGibson/trello-mcp-server.git"
