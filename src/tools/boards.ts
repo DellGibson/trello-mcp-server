@@ -56,6 +56,27 @@ export function registerBoardTools(server: McpServer, client: TrelloClient): voi
     return { content: [{ type: 'text', text }], structuredContent: { cards: cards.map(c => ({ ...c, listName: listMap.get(c.idList) })) } };
   });
 
+  server.registerTool('trello_update_board', {
+    title: 'Update Trello Board',
+    description: `Update board fields: rename, change description, or archive/unarchive. Only provide fields to change. All fields optional except board_id.`,
+    inputSchema: {
+      board_id: z.string().min(1).describe("Trello board ID"),
+      name: z.string().min(1).max(16384).optional().describe("New board name"),
+      desc: z.string().max(16384).optional().describe("New description (Markdown supported)"),
+      closed: z.boolean().optional().describe("Archive (true) or unarchive (false) the board")
+    },
+    annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: true, openWorldHint: false }
+  }, async ({ board_id, name, desc, closed }) => {
+    const board = await client.updateBoard(board_id, { name, desc, closed });
+    const changed = [
+      name !== undefined ? `name→"${board.name}"` : '',
+      desc !== undefined ? 'description' : '',
+      closed === true ? 'archived' : '',
+      closed === false ? 'unarchived' : ''
+    ].filter(Boolean).join(', ');
+    return { content: [{ type: 'text', text: `Updated board (${board.id})${changed ? `: ${changed}` : ''}` }], structuredContent: board };
+  });
+
   server.registerTool('trello_create_list', {
     title: 'Create List on Board',
     description: `Add a new list to a board. pos: 'top'|'bottom'.`,

@@ -59,6 +59,18 @@ export class TrelloClient {
     } catch (e) { this.handleError(e, `getBoard(${boardId})`); }
   }
 
+  async updateBoard(boardId: string, updates: { name?: string; desc?: string; closed?: boolean; idOrganization?: string; prefs?: Record<string, unknown> }): Promise<TrelloBoard> {
+    try {
+      const params: Record<string, unknown> = { ...this.auth };
+      if (updates.name !== undefined) params.name = updates.name;
+      if (updates.desc !== undefined) params.desc = updates.desc;
+      if (updates.closed !== undefined) params.closed = updates.closed;
+      if (updates.idOrganization !== undefined) params.idOrganization = updates.idOrganization;
+      const { data } = await this.http.put<TrelloBoard>(`/boards/${boardId}`, null, { params });
+      return data;
+    } catch (e) { this.handleError(e, `updateBoard(${boardId})`); }
+  }
+
   async getBoardLabels(boardId: string): Promise<TrelloLabel[]> {
     try {
       const { data } = await this.http.get<TrelloLabel[]>(`/boards/${boardId}/labels`, {
