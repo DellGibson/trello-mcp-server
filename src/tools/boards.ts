@@ -70,6 +70,29 @@ export function registerBoardTools(server: McpServer, client: TrelloClient): voi
     return { content: [{ type: 'text', text: `Created list "${list.name}" (${list.id})` }], structuredContent: list };
   });
 
+  server.registerTool('trello_update_list', {
+    title: 'Update Trello List',
+    description: `Update list fields: rename, archive/unarchive, move to a different board, or reposition. Only provide fields to change. All fields optional except list_id.`,
+    inputSchema: {
+      list_id: z.string().min(1).describe("Trello list ID"),
+      name: z.string().min(1).max(512).optional().describe("New list name"),
+      closed: z.boolean().optional().describe("Archive (true) or unarchive (false) the list"),
+      board_id: z.string().min(1).optional().describe("Move list to this board ID"),
+      pos: z.enum(['top','bottom']).optional().describe("Reposition within board")
+    },
+    annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: true, openWorldHint: false }
+  }, async ({ list_id, name, closed, board_id, pos }) => {
+    const list = await client.updateList(list_id, { name, closed, idBoard: board_id, pos });
+    const changed = [
+      name !== undefined ? `name→"${list.name}"` : '',
+      closed === true ? 'archived' : '',
+      closed === false ? 'unarchived' : '',
+      board_id !== undefined ? `moved to board ${board_id}` : '',
+      pos !== undefined ? `repositioned (${pos})` : ''
+    ].filter(Boolean).join(', ');
+    return { content: [{ type: 'text', text: `Updated list (${list.id})${changed ? `: ${changed}` : ''}` }], structuredContent: list };
+  });
+
   server.registerTool('trello_get_board_activity', {
     title: 'Get Board Recent Activity',
     description: `Get recent actions on a board. limit: 1-100 (default 20).`,

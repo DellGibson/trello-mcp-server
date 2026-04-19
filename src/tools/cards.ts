@@ -159,4 +159,118 @@ export function registerCardTools(server: McpServer, client: TrelloClient): void
     const result = await client.updateCheckItem(card_id, checklist_id, check_item_id, state);
     return { content: [{ type: 'text', text: `Check item marked as ${state}` }], structuredContent: result };
   });
+
+  server.registerTool('trello_copy_card', {
+    title: 'Copy Trello Card',
+    description: `Duplicate an existing card into the specified list. By default copies everything (checklists, labels, attachments, members). Useful for templates.`,
+    inputSchema: {
+      source_card_id: z.string().min(1).describe("Card to copy from"),
+      target_list_id: z.string().min(1).describe("List to create the copy in"),
+      name: z.string().min(1).max(16384).optional().describe("Override the new card's name (default: source name)"),
+      pos: z.enum(['top','bottom']).default('bottom').describe("Position in target list"),
+      keep: z.enum(['all','checklists','attachments','comments','due','labels','members','stickers','none']).default('all').describe("What to copy from source. 'all' = everything, 'none' = name only.")
+    },
+    annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: false }
+  }, async ({ source_card_id, target_list_id, name, pos, keep }) => {
+    const card = await client.copyCard(source_card_id, target_list_id, { name, pos, keepFromSource: keep });
+    return { content: [{ type: 'text', text: `Copied to "${card.name}" (${card.id})\n${card.shortUrl}` }], structuredContent: card };
+  });
+
+  server.registerTool('trello_add_attachment', {
+    title: 'Add URL Attachment to Card',
+    description: `Attach a URL to a card. Trello fetches the URL's title/preview automatically.`,
+    inputSchema: {
+      card_id: z.string().min(1).describe("Card ID"),
+      url: z.string().url().describe("URL to attach"),
+      name: z.string().min(1).max(256).optional().describe("Display name (default: URL's auto-detected title)")
+    },
+    annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: true }
+  }, async ({ card_id, url, name }) => {
+    const att = await client.addAttachmentToCard(card_id, url, name);
+    return { content: [{ type: 'text', text: `Attached "${att.name}" to card ${card_id}` }], structuredContent: att };
+  });
+
+  server.registerTool('trello_add_label_to_card', {
+    title: 'Add Label to Card',
+    description: `Add a label to a card by label name. Looks up the label on the card's board (case-insensitive). Use trello_get_board to see available label names.`,
+    inputSchema: {
+      card_id: z.string().min(1).describe("Card ID"),
+      label_name: z.string().min(1).describe("Label name (case-insensitive match on the card's board)")
+    },
+    annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: true, openWorldHint: false }
+  }, async ({ card_id, label_name }) => {
+    const card = await client.getCard(card_id);
+    const labels = await client.getBoardLabels(card.idBoard);
+    const target = labels.find(l => (l.name ?? '').toLowerCase() === label_name.toLowerCase());
+    if (!target) {
+      const available = labels.filter(l => l.name).map(l => l.name).join(', ') || '(none named)';
+      throw new Error(`No label named "${label_name}" on this board. Available: ${available}`);
+    }
+    await client.addLabelToCard(card_id, target.id);
+    return { content: [{ type: 'text', text: `Added label "${target.name}" (${target.color}) to card ${card_id}` }], structuredContent: { label: target } };
+  });
+
+  server.registerTool('trello_remove_label_from_card', {
+    title: 'Remove Label from Card',
+    description: `Remove a label from a card by label name (case-insensitive).`,
+    inputSchema: {
+      card_id: z.string().min(1).describe("Card ID"),
+      label_name: z.string().min(1).describe("Label name to remove")
+    },
+    annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: true, openWorldHint: false }
+  }, async ({ card_id, label_name }) => {
+    const card = await client.getCard(card_id);
+    const labels = await client.getBoardLabels(card.idBoard);
+    const target = labels.find(l => (l.name ?? '').toLowerCase() === label_name.toLowerCase());
+    if (!target) throw new Error(`No label named "${label_name}" on this board`);
+    await client.removeLabelFromCard(card_id, target.id);
+    return { content: [{ type: 'text', text: `Removed label "${target.name}" from card ${card_id}` }], structuredContent: { label: target } };
+  });
+
+  server.registerTool('trello_assign_member_to_card', {
+    title: 'Assign Member to Card',
+    description: `Assign a member to a card by username or full name (case-insensitive match on the card's board).`,
+    inputSchema: {
+      card_id: z.string().min(1).describe("Card ID"),
+      member: z.string().min(1).describe("Member username or full name (e.g. 'sarah' or 'Sarah Johnson')")
+    },
+    annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: true, openWorldHint: false }
+  }, async ({ card_id, member }) => {
+    const card = await client.getCard(card_id);
+    const members = await client.getBoardMembers(card.idBoard);
+    const needle = member.toLowerCase();
+    const target = members.find(m =>
+      m.username.toLowerCase() === needle ||
+      m.fullName.toLowerCase() === needle ||
+      m.fullName.toLowerCase().includes(needle)
+    );
+    if (!target) {
+      const available = members.map(m => `${m.fullName} (@${m.username})`).join(', ');
+      throw new Error(`No member matching "${member}" on this board. Available: ${available}`);
+    }
+    await client.addMemberToCard(card_id, target.id);
+    return { content: [{ type: 'text', text: `Assigned ${target.fullName} (@${target.username}) to card ${card_id}` }], structuredContent: { member: target } };
+  });
+
+  server.registerTool('trello_unassign_member_from_card', {
+    title: 'Unassign Member from Card',
+    description: `Remove a member from a card by username or full name.`,
+    inputSchema: {
+      card_id: z.string().min(1).describe("Card ID"),
+      member: z.string().min(1).describe("Member username or full name")
+    },
+    annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: true, openWorldHint: false }
+  }, async ({ card_id, member }) => {
+    const card = await client.getCard(card_id);
+    const members = await client.getBoardMembers(card.idBoard);
+    const needle = member.toLowerCase();
+    const target = members.find(m =>
+      m.username.toLowerCase() === needle ||
+      m.fullName.toLowerCase() === needle ||
+      m.fullName.toLowerCase().includes(needle)
+    );
+    if (!target) throw new Error(`No member matching "${member}" on this board`);
+    await client.removeMemberFromCard(card_id, target.id);
+    return { content: [{ type: 'text', text: `Unassigned ${target.fullName} (@${target.username}) from card ${card_id}` }], structuredContent: { member: target } };
+  });
 }
