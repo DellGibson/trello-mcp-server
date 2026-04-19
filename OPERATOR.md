@@ -1,17 +1,19 @@
 # Operator Runbook — Trello MCP Server
 
-For the person maintaining this deployment (currently: George Kendall / DellGibson). Covers the common operational tasks you'll run into after the initial build.
+For the person maintaining the Vercel deployment. Covers the common operational tasks you'll run into after the initial build.
+
+> **Note:** this runbook uses placeholders (`<YOUR_PRODUCTION_URL>`, `<YOUR_VERCEL_ORG>`, etc.). Replace them with your actual deployment values — or copy this file into a private `ops/` directory and fill in the real values there. The public version intentionally contains no deployment-specific identifiers.
 
 ## Quick reference
 
 | What | Where |
 |---|---|
-| Production URL | `https://trello-titan-todd.vercel.app` |
+| Production URL | `https://<YOUR_PRODUCTION_URL>` |
 | MCP endpoint | `/api/mcp` |
 | Health check | `/api/health` (no auth) |
 | AS metadata | `/.well-known/oauth-authorization-server` |
 | GitHub repo | <https://github.com/DellGibson/trello-mcp-server> |
-| Vercel project | `trello-titan-todd` under `georgekendall2-4665s-projects` |
+| Vercel project | `<YOUR_VERCEL_PROJECT>` under `<YOUR_VERCEL_ORG>` |
 | Default branch | `main` (auto-deploys to production on push/merge) |
 
 ## Environment variables (Vercel production)
@@ -21,7 +23,7 @@ For the person maintaining this deployment (currently: George Kendall / DellGibs
 | `TRELLO_API_KEY` | Customer's Trello Power-Up API key | Production + Preview + Development |
 | `TRELLO_TOKEN` | Customer's Trello user token (read,write) | Same |
 | `OAUTH_JWT_SECRET` | 64-hex HMAC secret signing all issued JWTs | Same |
-| `OAUTH_ISSUER_URL` | Canonical base URL — `https://trello-titan-todd.vercel.app` | Same |
+| `OAUTH_ISSUER_URL` | Canonical base URL — `https://<YOUR_PRODUCTION_URL>` | Same |
 
 All set via `vercel env add NAME env --value X --yes --force`. Note: preview-scope env additions require the branch name as a positional arg (e.g., `vercel env add FOO preview main --value X --yes`).
 
@@ -47,7 +49,7 @@ vercel --prod --yes   # only if you need to redeploy without a commit
 When the customer rotates their Trello token or you need to point the server at a different account:
 
 ```bash
-VERCEL="C:/Users/George/AppData/Roaming/npm/vercel.cmd"   # Windows path
+VERCEL=$(which vercel)   # or the full path to vercel.cmd on Windows
 cd /path/to/trello-mcp-server
 
 "$VERCEL" env add TRELLO_API_KEY production --value NEW_KEY --yes --force
@@ -82,7 +84,7 @@ Redeploy. All existing access/refresh tokens become invalid. Customer will go th
 ### Read production logs
 
 ```bash
-"$VERCEL" logs trello-titan-todd.vercel.app --since 10m
+"$VERCEL" logs <YOUR_PRODUCTION_URL> --since 10m
 ```
 
 OAuth revocation events are logged as:
@@ -115,8 +117,8 @@ Re-enable by reversing whichever you used.
 
 ### Symptom: claude.ai says "Couldn't reach the MCP server"
 
-- Check `curl https://trello-titan-todd.vercel.app/api/health` returns 200
-- Check `curl https://trello-titan-todd.vercel.app/.well-known/oauth-authorization-server` returns valid JSON
+- Check `curl https://<YOUR_PRODUCTION_URL>/api/health` returns 200
+- Check `curl https://<YOUR_PRODUCTION_URL>/.well-known/oauth-authorization-server` returns valid JSON
 - If either fails, check Vercel dashboard for function errors
 - If the WWW-Authenticate header is missing on 401s from `/api/mcp`, check `OAUTH_ISSUER_URL` is set
 
@@ -165,13 +167,13 @@ Not a common workflow — most development should happen via preview deploys, si
 5. After merge, production auto-deploys
 6. **Customer must remove + re-add the connector in Claude for the new tool to appear** — claude.ai caches the tool catalog at install time
 
-### Known CLI quirks (captured during original build)
+### Known CLI quirks
 
 - **Vercel stdin-based env add traps trailing whitespace** — always use `--value` flag
 - **Preview env adds need branch arg when git is connected** — `vercel env add FOO preview <branch> --value X --yes`
-- **`vercel env pull` is blocked by our local safety hook** — it writes secrets to a `.env` file
-- **Direct-to-main pushes are blocked** — all code changes must go through PR
-- **`vercel --prod --yes` is blocked via hook** — prefer git flow or use dashboard "Redeploy"
+- **`vercel env pull` writes secrets to a `.env` file** — treat with care
+- **Push to `main` directly** bypasses PR review — prefer feature branch + PR
+- **Force production deploy via CLI** — prefer git flow or dashboard "Redeploy"
 
 ## Upgrade path
 

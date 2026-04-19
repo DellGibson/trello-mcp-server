@@ -32,11 +32,13 @@ Claude will use your Trello workspace directly — same permissions as when you 
 | Field | Value |
 |---|---|
 | Name | `Trello` (or whatever you prefer) |
-| URL | `https://trello-titan-todd.vercel.app/api/mcp` |
+| URL | *(your deployment URL — provided separately by the person who set this up for you)* |
 | OAuth Client ID | **leave blank** |
 | OAuth Client Secret | **leave blank** |
 
 Click **Add**.
+
+> If you haven't been given the deployment URL yet, contact the operator who set this up.
 
 ### 3. Authorize
 
