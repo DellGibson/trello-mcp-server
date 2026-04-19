@@ -59,6 +59,19 @@ export class TrelloClient {
     } catch (e) { this.handleError(e, `getBoard(${boardId})`); }
   }
 
+  async createBoard(name: string, options?: { desc?: string; idOrganization?: string; defaultLists?: boolean; defaultLabels?: boolean; prefs_permissionLevel?: 'private' | 'org' | 'public' }): Promise<TrelloBoard> {
+    try {
+      const params: Record<string, unknown> = { ...this.auth, name };
+      if (options?.desc !== undefined) params.desc = options.desc;
+      if (options?.idOrganization !== undefined) params.idOrganization = options.idOrganization;
+      params.defaultLists = options?.defaultLists ?? true;
+      params.defaultLabels = options?.defaultLabels ?? true;
+      if (options?.prefs_permissionLevel !== undefined) params.prefs_permissionLevel = options.prefs_permissionLevel;
+      const { data } = await this.http.post<TrelloBoard>('/boards', null, { params });
+      return data;
+    } catch (e) { this.handleError(e, 'createBoard'); }
+  }
+
   async updateBoard(boardId: string, updates: { name?: string; desc?: string; closed?: boolean; idOrganization?: string; prefs?: Record<string, unknown> }): Promise<TrelloBoard> {
     try {
       const params: Record<string, unknown> = { ...this.auth };
