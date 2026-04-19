@@ -16,7 +16,7 @@
     }
   ],
   "functions": {
-    "api/mcp.ts": { "maxDuration": 30 },
+    "api/mcp.ts": { "maxDuration": 60 },
     "api/health.ts": { "maxDuration": 5 },
     "api/oauth/authorize.ts": { "maxDuration": 10 },
     "api/oauth/token.ts": { "maxDuration": 10 },
