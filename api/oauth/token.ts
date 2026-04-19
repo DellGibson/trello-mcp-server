@@ -7,9 +7,10 @@ let app: express.Express | undefined;
 function getApp(): express.Express {
   if (app) return app;
   const a = express();
-  a.use(express.urlencoded({ extended: false }));
-  a.use(express.json());
-  a.use(tokenHandler({ provider: new TrelloOAuthProvider(), rateLimit: false }));
+  a.use(
+    '/api/oauth/token',
+    tokenHandler({ provider: new TrelloOAuthProvider(), rateLimit: false }),
+  );
   app = a;
   return a;
 }

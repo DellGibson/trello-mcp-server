@@ -7,8 +7,8 @@ let app: express.Express | undefined;
 function getApp(): express.Express {
   if (app) return app;
   const a = express();
-  a.use(express.json());
   a.use(
+    '/api/oauth/register',
     clientRegistrationHandler({
       clientsStore: new TrelloOAuthProvider().clientsStore,
       rateLimit: false,
