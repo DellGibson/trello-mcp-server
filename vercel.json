@@ -21,6 +21,7 @@
     "api/oauth/authorize.ts": { "maxDuration": 10 },
     "api/oauth/token.ts": { "maxDuration": 10 },
     "api/oauth/register.ts": { "maxDuration": 10 },
+    "api/oauth/revoke.ts": { "maxDuration": 10 },
     "api/well-known/oauth-authorization-server.ts": { "maxDuration": 5 },
     "api/well-known/oauth-protected-resource.ts": { "maxDuration": 5 }
   }

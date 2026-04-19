@@ -21,13 +21,29 @@ import type { OAuthRegisteredClientsStore } from '@modelcontextprotocol/sdk/serv
 import type {
   OAuthClientInformationFull,
   OAuthTokens,
+  OAuthTokenRevocationRequest,
 } from '@modelcontextprotocol/sdk/shared/auth.js';
 import type { AuthInfo } from '@modelcontextprotocol/sdk/server/auth/types.js';
 
 const CODE_TTL_SEC = 120;
 const ACCESS_TOKEN_TTL_SEC = 3600;
-const REFRESH_TOKEN_TTL_SEC = 30 * 24 * 3600;
+const REFRESH_TOKEN_TTL_SEC = 365 * 24 * 3600;
 const CLIENT_TTL_SEC = 365 * 24 * 3600;
+
+/**
+ * Hosts allowed as OAuth redirect_uri targets. Restricts drive-by OAuth from
+ * anyone who discovers the Vercel URL. Loopback entries (localhost/127.0.0.1/[::1])
+ * remain allowed for curl testing and MCP Inspector per RFC 8252 §7.3.
+ */
+const ALLOWED_REDIRECT_HOSTS = new Set([
+  'claude.ai',
+  'www.claude.ai',
+  'api.anthropic.com',
+  'console.anthropic.com',
+  'localhost',
+  '127.0.0.1',
+  '[::1]',
+]);
 
 const AUD_CLIENT = 'mcp-oauth:client';
 const AUD_CODE = 'mcp-oauth:code';
@@ -130,6 +146,19 @@ export class TrelloOAuthProvider implements OAuthServerProvider {
     params: AuthorizationParams,
     res: Response,
   ): Promise<void> {
+    // Reject redirects to untrusted hosts BEFORE issuing a code.
+    // The SDK's authorizationHandler catches thrown errors and emits a
+    // properly-formed OAuth error response (no redirect to the attacker).
+    let redirectHost: string;
+    try {
+      redirectHost = new URL(params.redirectUri).hostname;
+    } catch {
+      throw new Error('redirect_uri is not a valid URL');
+    }
+    if (!ALLOWED_REDIRECT_HOSTS.has(redirectHost)) {
+      throw new Error('redirect_uri host not allowed');
+    }
+
     const code = await signToken(
       {
         client_id: client.client_id,
@@ -250,5 +279,47 @@ export class TrelloOAuthProvider implements OAuthServerProvider {
       scopes: payload.scopes ?? [],
       expiresAt: payload.exp,
     };
+  }
+
+  /**
+   * Stateless best-effort revocation per RFC 7009.
+   *
+   * LIMITATION: Because tokens are JWTs with no server-side store, revocation
+   * only stops the CLIENT from using the token (they discard it on 200 OK).
+   * The token remains cryptographically valid until its TTL expires. For
+   * enforceable server-side revocation we would need a denylist (KV/Redis)
+   * or rotate OAUTH_JWT_SECRET (invalidates all tokens). Acceptable for
+   * single-user deployments; documented in the operator runbook.
+   *
+   * RFC 7009 §2.2: the server responds 200 regardless of whether the token
+   * was valid, to avoid information disclosure. We validate the token purely
+   * to log the revocation intent (useful when reviewing logs later).
+   */
+  async revokeToken(
+    _client: OAuthClientInformationFull,
+    request: OAuthTokenRevocationRequest,
+  ): Promise<void> {
+    const token = request.token;
+    let kind: 'access' | 'refresh' | 'invalid' = 'invalid';
+    try {
+      await verifyToken(token, AUD_ACCESS);
+      kind = 'access';
+    } catch {
+      try {
+        await verifyToken(token, AUD_REFRESH);
+        kind = 'refresh';
+      } catch {
+        kind = 'invalid';
+      }
+    }
+    // Log (not throw) so stateless revocation is observable in Vercel logs
+    // without leaking token material.
+    console.log(
+      JSON.stringify({
+        event: 'oauth.revoke',
+        kind,
+        token_hint: request.token_type_hint ?? null,
+      }),
+    );
   }
 }
