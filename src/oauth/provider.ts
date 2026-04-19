@@ -26,8 +26,23 @@ import type { AuthInfo } from '@modelcontextprotocol/sdk/server/auth/types.js';
 
 const CODE_TTL_SEC = 120;
 const ACCESS_TOKEN_TTL_SEC = 3600;
-const REFRESH_TOKEN_TTL_SEC = 30 * 24 * 3600;
+const REFRESH_TOKEN_TTL_SEC = 365 * 24 * 3600;
 const CLIENT_TTL_SEC = 365 * 24 * 3600;
+
+/**
+ * Hosts allowed as OAuth redirect_uri targets. Restricts drive-by OAuth from
+ * anyone who discovers the Vercel URL. Loopback entries (localhost/127.0.0.1/[::1])
+ * remain allowed for curl testing and MCP Inspector per RFC 8252 §7.3.
+ */
+const ALLOWED_REDIRECT_HOSTS = new Set([
+  'claude.ai',
+  'www.claude.ai',
+  'api.anthropic.com',
+  'console.anthropic.com',
+  'localhost',
+  '127.0.0.1',
+  '[::1]',
+]);
 
 const AUD_CLIENT = 'mcp-oauth:client';
 const AUD_CODE = 'mcp-oauth:code';
@@ -130,6 +145,19 @@ export class TrelloOAuthProvider implements OAuthServerProvider {
     params: AuthorizationParams,
     res: Response,
   ): Promise<void> {
+    // Reject redirects to untrusted hosts BEFORE issuing a code.
+    // The SDK's authorizationHandler catches thrown errors and emits a
+    // properly-formed OAuth error response (no redirect to the attacker).
+    let redirectHost: string;
+    try {
+      redirectHost = new URL(params.redirectUri).hostname;
+    } catch {
+      throw new Error('redirect_uri is not a valid URL');
+    }
+    if (!ALLOWED_REDIRECT_HOSTS.has(redirectHost)) {
+      throw new Error('redirect_uri host not allowed');
+    }
+
     const code = await signToken(
       {
         client_id: client.client_id,
