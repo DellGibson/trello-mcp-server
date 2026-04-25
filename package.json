@@ -19,13 +19,13 @@
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.0.0",
-    "axios": "^1.7.0",
+    "axios": "^1.15.2",
     "zod": "^4.3.6"
   },
   "devDependencies": {
     "@types/express": "^5.0.6",
     "@types/node": "^25.6.0",
-    "@vercel/node": "^5.7.11",
+    "@vercel/node": "^5.7.13",
     "ts-node": "^10.9.0",
     "typescript": "^5.4.0"
   },
